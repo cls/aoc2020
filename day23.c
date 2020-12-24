@@ -2,11 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct cups {
+    int count;
+    int current;
+    int after[];
+};
+
 static void part1(const char *);
 static void part2(const char *);
 
-static int *make_cups(const char *, int, int *);
-static void play_game(int *, int, int *);
+static struct cups *make_cups(const char *, int);
+static void play_game(struct cups *);
 
 int
 main(void)
@@ -23,80 +29,77 @@ main(void)
 void
 part1(const char *input)
 {
-    int current;
-    int size = strlen(input);
-    int *cups = make_cups(input, size, &current);
+    struct cups *cup = make_cups(input, strlen(input));
 
     for (int i = 0; i < 100; i++)
-        play_game(cups, size, &current);
+        play_game(cup);
 
-    for (int label = cups[0]; label; label = cups[label])
+    for (int label = cup->after[0]; label; label = cup->after[label])
         putchar(label + '1');
 
     putchar('\n');
 
-    free(cups);
+    free(cup);
 }
 
 void
 part2(const char *input)
 {
-    int current;
-    int size = 1000000;
-    int *cups = make_cups(input, size, &current);
+    struct cups *cup = make_cups(input, 1000000);
 
     for (int i = 0; i < 10000000; i++)
-        play_game(cups, size, &current);
+        play_game(cup);
 
-    int first = cups[0];
-    int second = cups[first];
+    int first = cup->after[0];
+    int second = cup->after[first];
 
     long result = (long) (first + 1) * (second + 1);
 
     printf("%ld\n", result);
 
-    free(cups);
+    free(cup);
 }
 
-int *
-make_cups(const char *input, int size, int *pcurrent)
+struct cups *
+make_cups(const char *input, int count)
 {
-    int *cups = malloc(size * sizeof *cups);
-    int front = input[0] - '1';
-    int label = front;
+    struct cups *cup = malloc(sizeof *cup + (count * sizeof *cup->after));
+
+    int current = input[0] - '1';
+    int label = current;
     int index = 1;
 
+    cup->count = count;
+    cup->current = current;
+
     for (; input[index]; index++)
-        label = cups[label] = input[index] - '1';
+        label = cup->after[label] = input[index] - '1';
 
-    for (; index < size; index++)
-        label = cups[label] = index;
+    for (; index < count; index++)
+        label = cup->after[label] = index;
 
-    cups[label] = front;
-    *pcurrent = front;
+    cup->after[label] = current;
 
-    return cups;
+    return cup;
 }
 
 void
-play_game(int *cups, int size, int *pcurrent)
+play_game(struct cups *cup)
 {
-    int current = *pcurrent;
-    int first_removed = cups[current];
-    int second_removed = cups[first_removed];
-    int third_removed = cups[second_removed];
-    int post_third_removed = cups[third_removed];
+    int count = cup->count;
+    int current = cup->current;
+    int first_removed = cup->after[current];
+    int second_removed = cup->after[first_removed];
+    int third_removed = cup->after[second_removed];
 
     int destination = current;
     do
-        destination = (destination ? destination : size) - 1;
+        destination = (destination ? destination : count) - 1;
     while (destination == first_removed || destination == second_removed || destination == third_removed);
 
-    int post_destination = cups[destination];
+    cup->after[current] = cup->after[third_removed];
+    cup->after[third_removed] = cup->after[destination];
+    cup->after[destination] = first_removed;
 
-    cups[current] = post_third_removed;
-    cups[third_removed] = post_destination;
-    cups[destination] = first_removed;
-
-    *pcurrent = post_third_removed;
+    cup->current = cup->after[current];
 }
